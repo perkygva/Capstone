@@ -1,0 +1,18 @@
+---
+title: "Documentation"
+author: "Allan Perk"
+date: "11 December 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The application is the Capstone project of the Coursera Data Science Specialization. 
+
+The target of the project is to predict the next word in a given sentence. The current APP predicts the next word given an input between 1 and 3 words.
+
+Further details of the project and APP can be found at the below links:
+[Rpubs](https://rpubs.com/perkygva)
+[Github] 

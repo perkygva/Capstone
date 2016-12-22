@@ -1,0 +1,31 @@
+---
+title: "Milestone Report"
+author: "Allan Perk"
+date: "30 October 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+1. Set-up: package installation and data downloading
+2. Loading raw data and exploratory analysis
+3. Sampling and Cleaning Data
+4. Creating Corpora and Word Cloud
+
+
+```{r file stats}
+stats
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

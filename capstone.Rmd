@@ -1,0 +1,185 @@
+---
+title: "Capstone Project"
+output:
+  html_document: default
+  html_notebook: default
+---
+## Milestone Report - Text Mining
+
+### Exective Summary
+This report represents the Milestone Report for the Coursera Data Science Capstone project. The goal of the project is to create a predictive text model and app.
+
+### Prepare R and Load Data
+We start every analysis by preparing R with the usual packages, along with any extra packages which might be needed. By installing *pacman*, we have the flexibility of running *p_load* and having the necessary packages installed if they are not present.
+
+Then we proceed to download the files and run a quick inspection of the files present.
+```{r, warning = F, echo = FALSE}
+if(!require("pacman", character.only = TRUE))
+{install.packages("pacman")}
+p_load(stringi, Ruchardet, tm, qdap, RWeka, wordcloud, RColorBrewer,SnowballC, slam)
+p_load(knitr)
+
+fileurl <- "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+
+if(!file.exists("Coursera-SwiftKey.zip")){
+  download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip", dest = "Coursera-SwiftKey.zip")
+  unzip("Coursera-SwiftKey.zip", list = TRUE)
+  }
+
+list.files("final")
+list.files("final/en_US")
+```
+
+
+### Data Inspection and Cleaning
+We then proceed to have a closer look at the files and their content, size
+
+```{r, warning = F, comment= F}
+blog <- "final/en_US/en_US.blogs.txt"
+twitter <- "final/en_US/en_US.twitter.txt"
+news <- "final/en_US/en_US.news.txt"
+
+#Import data using UTF-8 encoding to account for all languages/characters
+rblog <- readLines(blog, encoding = "UTF-8", warn = F)
+rtwitter <- readLines(twitter, encoding = "UTF-8",warn = F)
+rnews <- readLines(news, encoding = "UTF-8", warn = F)
+
+stats <- data.frame(
+  File = c("Blog", "Twitter", "News"),
+  Size = sapply(list(rblog, rtwitter, rnews), function(x) (format(object.size(x), units = "Mb"))),
+  Lines = sapply(list(rblog, rtwitter, rnews), function(x) (length(x))),
+  Nchar = sapply(list(rblog, rtwitter, rnews), function(x) (sum(nchar(x)))),
+  Nwords = sapply(list(rblog, rtwitter, rnews), function(x) sum(stri_count_words(x))),
+  mean_words = sapply(list(rblog, rtwitter, rnews), function(x) mean(stri_count_words(x)))
+)
+
+#Remove Non-English characters as causing issues in corpus further down
+rblog <- iconv(rblog, "latin1", "ASCII", sub="")
+rtwitter <- iconv(rtwitter, "latin1", "ASCII", sub="")
+rnews <- iconv(rnews, "latin1", "ASCII", sub="")
+
+#Sampling 
+set.seed(001)
+sblog <- sample(rblog, 5000, replace = F)
+stwitter <- sample(rtwitter, 5000, replace = F)
+snews <- sample(rnews, 5000, replace = F)
+
+sample.list <- list(blogs = sblog, tweets = stwitter, news = snews)
+sample.comb <- sample(c(sblog, stwitter, snews), 2500, replace = F)
+
+rm(rblog, rtwitter, rnews)
+
+#Cleaning 
+con <- url("http://www.bannedwordlist.com/lists/swearWords.txt")
+swear_words <- readLines(con, warn = F)
+stopwords <- c(swear_words, "and", "for", "in", "is", "it", "not", "the", "to")
+save(stopwords, file = "stopwords.RData")
+close(con)
+rm(url)
+
+mycorpus <- list(); tdm <- list(); m <- list() ; freq <- list()
+
+for (i in 1:length(sample.list)) {
+  # Create corpus dataset
+  mycorpus[[i]] <- Corpus(VectorSource(sample.list[[i]]))
+  # Cleaning/stemming the data
+  mycorpus[[i]] <- tm_map(mycorpus[[i]], tolower)
+  mycorpus[[i]] <- tm_map(mycorpus[[i]], removeNumbers)
+  mycorpus[[i]] <- tm_map(mycorpus[[i]], removeWords, stopwords("english"))
+  mycorpus[[i]] <- tm_map(mycorpus[[i]], removePunctuation)
+  mycorpus[[i]] <- tm_map(mycorpus[[i]], stemDocument)
+  mycorpus[[i]] <- tm_map(mycorpus[[i]], stripWhitespace)
+  mycorpus[[i]] <- tm_map(mycorpus[[i]], PlainTextDocument)
+  # calculate document term frequency for mycorpus
+  tdm[[i]] <- TermDocumentMatrix(mycorpus[[i]], control = list(wordLengths = c(0, Inf)))
+  m[[i]] <- as.matrix(tdm[[i]])
+  freq[[i]] <- sort(rowSums(m[[i]]), decreasing = TRUE)
+}
+names(tdm) <- c("blogs", "tweets", "news")
+names(freq) <- c("blogs", "tweets", "news")
+
+
+```
+
+### Exploratory Analysis
+
+We perform exploratory data anlaysis by investigating the frequency of words, producing a word cloud and barchart for each of the 3 documents - "blog", "twitter", "news".
+
+```{r, warning = F, comment= F}
+kable(stats, caption = "File stats")
+
+#WordClouds by Source
+par(mfrow=c(1,3))
+headings = c("Blogs", "Tweets", "News")
+
+for (i in 1:length(m)){
+  wordcloud(words = rownames(m[[i]]), freq = rowSums(m[[i]]), scale = c(3,1), max.words=150, 
+            random.order = F, colors = palette())
+  title(headings[[i]])
+}
+
+par(mfrow = c(3,1))
+barplot(freq$blogs[1:30], names=names(freq$blogs[1:30]), col="red", main="Blogs", las = 2)
+barplot(freq$tweets[1:30], names=names(freq$tweets[1:30]), col="red", main="Tweets", las = 2)
+barplot(freq$news[1:30], names=names(freq$news[1:30]), col="red", main="News", las = 2)
+
+```
+
+We then take create a corpus combining the 3 samples previously taken, to investigate furhter word combinations.
+
+```{r, warning = F, comment= F}
+source('G:/GENEVA/Allan/DS/Capstone/clean_corpus function.R', echo=TRUE)
+mycorpus.combo <- Corpus(VectorSource(sample.comb))
+clean_corpus(mycorpus.combo)
+
+#Tokenization:
+Unigram <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
+Bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+Trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+Quagram <- function(x) NGramTokenizer(x, Weka_control(min = 4, max = 4))
+
+Uni_tdm <- TermDocumentMatrix(mycorpus.combo, control = list(tokenize = Unigram))
+Bi_tdm <- TermDocumentMatrix(mycorpus.combo, control = list(tokenize = Bigram))
+Tri_tdm <- TermDocumentMatrix(mycorpus.combo, control = list(tokenize = Trigram))
+Qua_tdm <- TermDocumentMatrix(mycorpus.combo, control = list(tokenize = Quagram))
+
+rm(mycorpus.combo)
+
+Uni_freq <- sort(rowSums(as.matrix(Uni_tdm)), decreasing = T)
+Bi_freq<-rowSums(as.matrix(Bi_tdm))
+Tri_freq<-rowSums(as.matrix(Tri_tdm))
+Qua_freq<-rowSums(as.matrix(Qua_tdm))
+
+Uni_df <- data.frame(word = names(Uni_freq), freq = Uni_freq)
+Uni_df <- Uni_df[order(Uni_df[,2], decreasing = TRUE), ]
+Bi_df <- data.frame(word =names(Bi_freq), freq=Bi_freq)
+Bi_df <- Bi_df[order(Bi_df[,2], decreasing = TRUE), ]
+Tri_df <- data.frame(word =names(Tri_freq), freq=Tri_freq)
+Tri_df <- Tri_df[order(Tri_df[,2], decreasing = TRUE), ]
+Qua_df <- data.frame(word =names(Qua_freq), freq=Qua_freq)
+Qua_df <- Qua_df[order(Qua_df[,2], decreasing = TRUE), ]
+
+#WordClouds
+par(mfrow=c(2, 2))
+wordcloud(Uni_df[,1], Uni_df[,2], min.freq = 10, max.words = 150, random.order = F, ordered.colors = F, colors = palette())
+title("1-gram cloud")
+
+wordcloud(Bi_df[,1], Bi_df[,2], min.freq = 10, max.words = 100,random.order = F, ordered.colors = F, colors = palette())
+title("2-gram cloud")
+
+wordcloud(Tri_df[,1], Tri_df[,2], min.freq = 10, max.words = 100,random.order = F, ordered.colors = F, colors = palette())
+title("3-gram cloud")
+
+#HIstograms of NGrams
+par(mfrow = c(2,2))
+barplot(Uni_df[1:20,2], names.arg=Uni_df[1:20,1], col="red", main="1-Grams", las =2)
+barplot(Bi_df[1:20,2], names.arg=Bi_df[1:20,1], col="red", main="2-Grams", las =2)
+barplot(Tri_df[1:20,2], names.arg=Tri_df[1:20,1], col="red", main="3-Grams", las = 2)
+barplot(Qua_df[1:20,2], names.arg=Qua_df[1:20,1], col="red", main="4-Grams", las = 2)
+```
+
+### Next steps 
+
+Next step:
+- Develop prediction model using N-grams/tokens
+- Start creation of shiny app
